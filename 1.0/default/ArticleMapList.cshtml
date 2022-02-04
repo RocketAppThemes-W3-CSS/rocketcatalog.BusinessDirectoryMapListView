@@ -13,10 +13,12 @@
     var remoteModule = (RemoteModule)Model.GetDataObject("remotemodule");
     var portalData = (PortalLimpet)Model.GetDataObject("portaldata");
     var categoryList = (CategoryLimpetList)Model.GetDataObject("categorylist");
+    var propertyList = (PropertyLimpetList)Model.GetDataObject("propertylist");
     var appTheme = (AppThemeLimpet)Model.GetDataObject("apptheme");
     var appThemeAdmin = (AppThemeLimpet)Model.GetDataObject("appthemeadmin");
     var appThemeDefault = (AppThemeLimpet)Model.GetDataObject("appthemedefault");
     var categoryData = new CategoryLimpet(portalCatalog.PortalId, articleDataList.CategoryId, sessionParams.CultureCode);
+    var appThemeMap = new AppThemeLimpet(portalCatalog.PortalId, "rocketcatalog.BusinessDirectoryMapView", "1.0", appTheme.Organisation);
 
     var hbsDict = new Dictionary<string, SimplisityInfo>();
     hbsDict.Add("sessionparams", sessionParams.Info);
@@ -32,128 +34,25 @@
 
 
 <div class="w3-row">
-    @RenderTemplate("SearchBanner.cshtml", appThemeDefault, Model, true)
+    @RenderTemplate("SearchBanner.cshtml", appTheme, Model, true)
 </div>
 
 <div class="w3-row">
     <div class="w3-half">
-        <div id="leafletmap"></div>
+        @RenderTemplate("ArticleMap.cshtml", appThemeMap, Model, true)
     </div>
     <div class="w3-half">
-        @foreach (ArticleLimpet articleData in articleDataList.GetArticleList())
-        {
-            hbsDict.Remove("data");
-            hbsDict.Add("data", articleData.Info);
-            @RenderHandleBarsRC(hbsDict, appTheme, "productlistrow.hbs", remoteModule.ModuleRef, "")
-        }
-        <div class="w3-row w3-padding-16 w3-center">
-            @RenderTemplate("ProductPaging.cshtml", appThemeDefault, Model, true)
+        <div id="cataloglist">
+            @foreach (ArticleLimpet articleData in articleDataList.GetArticleList())
+            {
+                hbsDict.Remove("data");
+                hbsDict.Add("data", articleData.Info);
+                @RenderHandleBarsRC(hbsDict, appTheme, "productlistrow.hbs", remoteModule.ModuleRef, "")
+            }
+            <div class="w3-row w3-padding-16 w3-center">
+                @RenderTemplate("ProductPaging.cshtml", appThemeDefault, Model, true)
+            </div>
         </div>
     </div>
 </div>
-
-@{
-    var locationlist = "";
-    var boundlocationlist = "";
-    var gpslong = "";
-    var gpslat = "";
-    var companyname = "";
-    var websiteurl = "";
-    var txtdata = "";
-    var articlesummary = "";
-    ArticleImage articleImage = null;
-    var detailpageurl = "";
-}
-
-@foreach (ArticleLimpet articleData in articleDataList.GetArticleList())
-{
-    var info = articleData.Info;
-    gpslong = info.GetXmlProperty("genxml/textbox/long").Replace("'", "");
-    gpslat = info.GetXmlProperty("genxml/textbox/lat").Replace("'", "");
-    companyname = info.GetXmlProperty("genxml/lang/genxml/textbox/articlename").Replace("'", "-");
-    articlesummary = BreakOf(info, "genxml/lang/genxml/textbox/articlesummary").ToString().Replace("'", "-");
-    if (articlesummary.Length > 200)
-    {
-        articlesummary = articlesummary.Substring(0, 200);
-    }
-    websiteurl = info.GetXmlProperty("genxml/textbox/website");
-    articleImage = articleData.GetImage(0);
-    detailpageurl = remoteModule.Record.GetXmlProperty("genxml/settings/detailpage");
-
-    if (GeneralUtils.IsNumeric(gpslong) && (GeneralUtils.IsNumeric(gpslat)))
-    {
-        var mapIcon = "defaultIcon";
-
-        txtdata = "'<div class=\"leafletinfowindow liwimg\" style=\"overflow: hidden;\">";
-        txtdata += "<h3>" + companyname + "</h3>";
-        if (articleImage != null && articleImage.RelPath != "")
-        {
-
-            txtdata += "<div class=\"w3-row\"><div class=\"w3-col m4\" style=\"width:90px;\">";
-            txtdata += "<img src=\"" + ThumbnailImageUrl(portalData.EngineUrlWithProtocol, articleImage.RelPath, 80, 80) + "\"/>";
-            txtdata += "</div><div class=\"w3-col m8\"><p>" + articlesummary + "</p></div></div>";
-        }
-        else
-        {
-            txtdata += "<div><p>" + articlesummary + "</p></div>";
-        }
-        if (remoteModule.Record.GetXmlPropertyBool("genxml/settings/extrainfo") && remoteModule.Record.GetXmlProperty("genxml/settings/detailpage") != "")
-        {
-            txtdata += "<div><a href=\"" + remoteModule.Record.GetXmlProperty("genxml/settings/detailpage") + "?articleid=" + articleData.ArticleId + "&" + GeneralUtils.UrlFriendly(articleData.Name) + "\">" + ResourceKey("Theme.moreinfo").ToString() + "</a></div>";
-        }
-        if (remoteModule.Record.GetXmlPropertyBool("genxml/settings/websitelink") && websiteurl != "")
-        {
-            txtdata += "<div><a href=" + websiteurl + " target=\"_blank\">" + websiteurl + "</a></div>";
-        }
-        txtdata += "</div>'";
-
-        locationlist += "var m = L.marker([" + gpslat + ", " + gpslong + "], {icon: " + mapIcon + ",itemid: " + info.ItemID + "}, { title: '" + companyname + "' }, {itemid: " + info.ItemID + "});";
-        locationlist += "m.bindPopup(" + txtdata + ").openPopup();";
-        locationlist += "m.number = " + info.ItemID + ";";
-        locationlist += "markers1.addLayer(m);";
-        boundlocationlist += "L.marker([" + gpslat + ", " + gpslong + "]),";
-    }
-}
-
-
-<script>
-
-    var defaultIcon = L.icon({
-        iconUrl: '@(sessionParams.EngineURL + "/" + appTheme.AppThemeVersionFolderRel)/img/marker-default.png',
-    });
-    var siteIcon = L.icon({
-        iconUrl: '@(sessionParams.EngineURL + "/" + appTheme.AppThemeVersionFolderRel)/img/marker-site.png',
-    });
-
-    //set grouping markers maxClusterRadius: 80 is the default option, can change to reduce splitting on zoom
-    var markers1 = L.markerClusterGroup();
-
-    var map = L.map('leafletmap').setView([51.505, -0.09], 13);
-
-    var tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-
-    //set the initial padding of the map depending on markers position
-    var boundmarkers = [@(new RazorEngine.Text.RawString(boundlocationlist.TrimEnd(',')))];
-
-    if (boundmarkers.length > 0)
-    {
-        var group = L.featureGroup(boundmarkers);
-        map.fitBounds(group.getBounds(), {
-        	padding: [100, 100]
-        })
-    }
-
-    @(new RazorEngine.Text.RawString(locationlist))
-
-
-    // add markers layer
-    map.addLayer(markers1);
-    map.on('focus', function() { map.scrollWheelZoom.enable(); });
-    map.on('blur', function () { map.scrollWheelZoom.disable(); });
-
-
-</script>
 
