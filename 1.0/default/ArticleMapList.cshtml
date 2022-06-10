@@ -17,7 +17,7 @@
     var appTheme = (AppThemeLimpet)Model.GetDataObject("apptheme");
     var appThemeAdmin = (AppThemeLimpet)Model.GetDataObject("appthemeadmin");
     var appThemeDefault = (AppThemeLimpet)Model.GetDataObject("appthemedefault");
-    var categoryData = new CategoryLimpet(portalCatalog.PortalId, articleDataList.CategoryId, sessionParams.CultureCode);
+    var categoryData = (CategoryLimpet)Model.GetDataObject("categorydata");
     var appThemeMap = new AppThemeLimpet(portalCatalog.PortalId, "rocketcatalog.BusinessDirectoryMapView", "1.0", appTheme.Organisation);
 
     var hbsDict = new Dictionary<string, SimplisityInfo>();
